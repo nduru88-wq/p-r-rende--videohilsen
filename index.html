@@ -281,7 +281,7 @@
 
     .listItem{
       display:grid;
-      grid-template-columns:auto 1fr auto;
+      grid-template-columns:1fr auto;
       align-items:center;
       gap:10px;
       padding:10px;
@@ -289,17 +289,6 @@
       border-radius:14px;
       margin-top:10px;
       background:rgba(255,255,255,.06);
-    }
-
-    .dragHandle{
-      font-size:24px;
-      color:var(--muted);
-      cursor:grab;
-      user-select:none;
-    }
-
-    .listItem.dragging{
-      opacity:.45;
     }
 
     .smallActions{
@@ -389,7 +378,7 @@
     <button class="mainBtn" id="newPersonBtn">+ Opret familiemedlem</button>
 
     <p class="note">
-      Tip: Hold fingeren på ☰ og træk for at ændre rækkefølgen.
+      Brug ⬆️ og ⬇️ for at ændre rækkefølgen.
       Tryk på ⭐ for at gøre en person til favorit.
     </p>
 
@@ -435,7 +424,7 @@
 <button class="closeVideoFloating" id="closeVideoBtn">×</button>
 
 <script>
-const STORAGE_KEY = "familieVideoPersonerV2";
+const STORAGE_KEY = "familieVideoPersonerV3";
 const DB_NAME = "familieVideoDBV2";
 const DB_VERSION = 1;
 const STORE_NAME = "videos";
@@ -466,7 +455,6 @@ let tapCount = 0;
 let tapTimer = null;
 let selectedVideoFile = null;
 let selectedThumbnail = null;
-let dragId = null;
 
 function loadPeople(){
   try{
@@ -669,11 +657,9 @@ function renderAdminList(){
   shown.forEach(person => {
     const item = document.createElement("div");
     item.className = "listItem";
-    item.draggable = true;
     item.dataset.id = person.id;
 
     item.innerHTML = `
-      <div class="dragHandle">☰</div>
       <div>
         <strong>${person.favorite ? "⭐ " : ""}${escapeHtml(person.name)}</strong><br>
         <span style="color:rgba(255,255,255,.7);font-size:14px;">
@@ -681,30 +667,20 @@ function renderAdminList(){
         </span>
       </div>
       <div class="smallActions">
+        <button class="lightBtn upBtn">⬆️</button>
+        <button class="lightBtn downBtn">⬇️</button>
         <button class="lightBtn favBtn">${person.favorite ? "Fjern ⭐" : "⭐"}</button>
         <button class="lightBtn editBtn">Ret</button>
         <button class="dangerBtn deleteBtn">Slet</button>
       </div>
     `;
 
-    item.addEventListener("dragstart", () => {
-      dragId = person.id;
-      item.classList.add("dragging");
+    item.querySelector(".upBtn").addEventListener("click", () => {
+      movePerson(person.id, -1);
     });
 
-    item.addEventListener("dragend", () => {
-      dragId = null;
-      item.classList.remove("dragging");
-    });
-
-    item.addEventListener("dragover", e => {
-      e.preventDefault();
-    });
-
-    item.addEventListener("drop", e => {
-      e.preventDefault();
-      const targetId = item.dataset.id;
-      reorderPeople(dragId, targetId);
+    item.querySelector(".downBtn").addEventListener("click", () => {
+      movePerson(person.id, 1);
     });
 
     item.querySelector(".favBtn").addEventListener("click", () => {
@@ -733,20 +709,20 @@ function renderAdminList(){
   });
 }
 
-function reorderPeople(fromId, toId){
-  if(!fromId || !toId || fromId === toId) return;
-
+function movePerson(id, direction){
   const list = sortedPeople();
-  const fromIndex = list.findIndex(p => p.id === fromId);
-  const toIndex = list.findIndex(p => p.id === toId);
-  if(fromIndex < 0 || toIndex < 0) return;
+  const index = list.findIndex(p => p.id === id);
+  if(index < 0) return;
 
-  const [moved] = list.splice(fromIndex, 1);
-  list.splice(toIndex, 0, moved);
+  const newIndex = index + direction;
+  if(newIndex < 0 || newIndex >= list.length) return;
 
-  list.forEach((p, index) => {
+  const [moved] = list.splice(index, 1);
+  list.splice(newIndex, 0, moved);
+
+  list.forEach((p, i) => {
     const original = people.find(x => x.id === p.id);
-    if(original) original.order = index;
+    if(original) original.order = i;
   });
 
   savePeople();
