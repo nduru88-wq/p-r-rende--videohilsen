@@ -10,6 +10,10 @@
 
   <title>Min familie</title>
 
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" href="icon-192.png">
+
   <style>
     :root{
       --bg:#0b1220;
@@ -19,6 +23,7 @@
       --muted:rgba(255,255,255,.72);
       --stroke:rgba(255,255,255,.14);
       --green:#27d17c;
+      --yellow:#ffd86b;
       --red:#ff5a5a;
       --radius:24px;
       --shadow:0 10px 28px rgba(0,0,0,.35);
@@ -63,13 +68,17 @@
       width:42px;
       height:42px;
       border-radius:12px;
-      object-fit:contain;
+      display:grid;
+      place-items:center;
       background:rgba(255,255,255,.08);
       border:1px solid var(--stroke);
-      padding:5px;
       box-shadow:0 6px 18px rgba(0,0,0,.25);
       user-select:none;
+      font-size:22px;
+      -webkit-tap-highlight-color:transparent;
     }
+
+    .titleLogo:active{transform:scale(.96)}
 
     h1{
       margin:0;
@@ -95,6 +104,7 @@
     }
 
     .card{
+      position:relative;
       background:linear-gradient(180deg,var(--card2),var(--card));
       border:1px solid var(--stroke);
       border-radius:var(--radius);
@@ -109,6 +119,14 @@
     }
 
     .card:active{transform:scale(.985)}
+
+    .favoriteBadge{
+      position:absolute;
+      top:10px;
+      right:12px;
+      font-size:22px;
+      filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));
+    }
 
     .avatar{
       width:min(154px,35vw);
@@ -138,7 +156,7 @@
       line-height:1.05;
     }
 
-    .title{
+    .relation{
       margin:0;
       color:var(--muted);
       font-size:15px;
@@ -182,7 +200,7 @@
     .modalBackdrop.show{display:flex}
 
     .modal{
-      width:min(520px,94vw);
+      width:min(540px,94vw);
       max-height:90dvh;
       overflow:auto;
       background:#0b1220;
@@ -211,6 +229,19 @@
       padding:13px;
       border-radius:14px;
       font-size:17px;
+    }
+
+    .checkboxLine{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-top:14px;
+      font-weight:800;
+    }
+
+    .checkboxLine input{
+      width:22px;
+      height:22px;
     }
 
     button{
@@ -249,8 +280,8 @@
     .btnRow button{flex:1}
 
     .listItem{
-      display:flex;
-      justify-content:space-between;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
       align-items:center;
       gap:10px;
       padding:10px;
@@ -260,29 +291,74 @@
       background:rgba(255,255,255,.06);
     }
 
+    .dragHandle{
+      font-size:24px;
+      color:var(--muted);
+      cursor:grab;
+      user-select:none;
+    }
+
+    .listItem.dragging{
+      opacity:.45;
+    }
+
     .smallActions{
       display:flex;
       gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .smallActions button{
-      font-size:14px;
-      padding:9px 10px;
+      font-size:13px;
+      padding:9px 9px;
     }
 
-    .videoBox{
-      width:100%;
-      background:#050912;
-      border-radius:16px;
-      overflow:hidden;
-      border:1px solid var(--stroke);
-    }
-
-    .videoBox video{
-      display:block;
-      width:100%;
-      max-height:65dvh;
+    .videoFullscreen{
+      position:fixed;
+      inset:0;
       background:#000;
+      display:none;
+      z-index:10000;
+    }
+
+    .videoFullscreen.show{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .videoFullscreen video{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      background:#000;
+    }
+
+    .closeVideoFloating{
+      position:fixed;
+      right:calc(14px + env(safe-area-inset-right));
+      top:calc(14px + env(safe-area-inset-top));
+      z-index:10001;
+      background:rgba(255,255,255,.18);
+      color:white;
+      border:1px solid rgba(255,255,255,.25);
+      border-radius:999px;
+      width:48px;
+      height:48px;
+      font-size:24px;
+      display:none;
+      place-items:center;
+    }
+
+    .videoFullscreen.show + .closeVideoFloating{
+      display:grid;
+    }
+
+    .note{
+      color:rgba(255,255,255,.72);
+      font-size:14px;
+      line-height:1.4;
     }
 
     @media(max-width:390px){
@@ -311,6 +387,12 @@
   <div class="modal">
     <h2>Administrer familie</h2>
     <button class="mainBtn" id="newPersonBtn">+ Opret familiemedlem</button>
+
+    <p class="note">
+      Tip: Hold fingeren på ☰ og træk for at ændre rækkefølgen.
+      Tryk på ⭐ for at gøre en person til favorit.
+    </p>
+
     <div id="adminList"></div>
     <button class="lightBtn" id="closeAdminBtn" style="width:100%;margin-top:14px;">Luk</button>
   </div>
@@ -326,17 +408,19 @@
     <input id="nameInput" type="text" placeholder="Fx Niels">
 
     <label>Titel / relation</label>
-    <input id="titleInput" type="text" placeholder="Fx Søn">
+    <input id="relationInput" type="text" placeholder="Fx Søn">
 
-    <label>Billede / thumbnail</label>
-    <input id="imageInput" type="file" accept="image/*">
-
-    <label>Video</label>
+    <label>Video fra filmrullen</label>
     <input id="videoInput" type="file" accept="video/*">
 
-    <p style="color:rgba(255,255,255,.7);font-size:14px;line-height:1.4;">
-      Brug korte videoer, gerne 5-20 sekunder. Store videoer kan fylde for meget på telefonen.
+    <p class="note">
+      Appen laver selv et billede/thumbnail fra videoen. Brug helst korte videoer, fx 5-20 sekunder.
     </p>
+
+    <div class="checkboxLine">
+      <input id="favoriteInput" type="checkbox">
+      <span>Vis som favorit</span>
+    </div>
 
     <div class="btnRow">
       <button class="mainBtn" id="saveBtn">Gem</button>
@@ -345,29 +429,20 @@
   </div>
 </div>
 
-<div class="modalBackdrop" id="videoModal">
-  <div class="modal">
-    <h2 id="videoTitle">Video</h2>
-
-    <div class="videoBox">
-      <video id="personVideo" controls playsinline preload="metadata"></video>
-    </div>
-
-    <button class="mainBtn" id="closeVideoBtn" style="margin-top:14px;">Luk video</button>
-  </div>
+<div class="videoFullscreen" id="videoFullscreen">
+  <video id="personVideo" controls playsinline></video>
 </div>
+<button class="closeVideoFloating" id="closeVideoBtn">×</button>
 
 <script>
-const STORAGE_KEY = "familieVideoPersonerV1";
-const DB_NAME = "familieVideoDB";
+const STORAGE_KEY = "familieVideoPersonerV2";
+const DB_NAME = "familieVideoDBV2";
 const DB_VERSION = 1;
 const STORE_NAME = "videos";
 
 const familyGrid = document.getElementById("familyGrid");
 const adminModal = document.getElementById("adminModal");
 const formModal = document.getElementById("formModal");
-const videoModal = document.getElementById("videoModal");
-
 const hiddenAdminLogo = document.getElementById("hiddenAdminLogo");
 const closeAdminBtn = document.getElementById("closeAdminBtn");
 const newPersonBtn = document.getElementById("newPersonBtn");
@@ -376,21 +451,22 @@ const adminList = document.getElementById("adminList");
 const formTitle = document.getElementById("formTitle");
 const editId = document.getElementById("editId");
 const nameInput = document.getElementById("nameInput");
-const titleInput = document.getElementById("titleInput");
-const imageInput = document.getElementById("imageInput");
+const relationInput = document.getElementById("relationInput");
 const videoInput = document.getElementById("videoInput");
+const favoriteInput = document.getElementById("favoriteInput");
 const saveBtn = document.getElementById("saveBtn");
 const cancelFormBtn = document.getElementById("cancelFormBtn");
 
-const videoTitle = document.getElementById("videoTitle");
+const videoFullscreen = document.getElementById("videoFullscreen");
 const personVideo = document.getElementById("personVideo");
 const closeVideoBtn = document.getElementById("closeVideoBtn");
 
 let people = loadPeople();
 let tapCount = 0;
 let tapTimer = null;
-let selectedImageData = null;
 let selectedVideoFile = null;
+let selectedThumbnail = null;
+let dragId = null;
 
 function loadPeople(){
   try{
@@ -453,7 +529,6 @@ async function getVideo(id){
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const request = tx.objectStore(STORE_NAME).get(id);
-
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
@@ -470,30 +545,80 @@ async function deleteVideo(id){
   });
 }
 
-function imageFileToDataURL(file){
+function createThumbnailFromVideo(file){
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    const video = document.createElement("video");
+    const url = URL.createObjectURL(file);
+
+    video.preload = "metadata";
+    video.muted = true;
+    video.playsInline = true;
+    video.src = url;
+
+    video.addEventListener("loadedmetadata", () => {
+      video.currentTime = Math.min(0.5, video.duration || 0);
+    });
+
+    video.addEventListener("seeked", () => {
+      try{
+        const size = 500;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+
+        const ctx = canvas.getContext("2d");
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
+        const side = Math.min(vw, vh);
+        const sx = (vw - side) / 2;
+        const sy = (vh - side) / 2;
+
+        ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+        URL.revokeObjectURL(url);
+        resolve(dataUrl);
+      }catch(e){
+        URL.revokeObjectURL(url);
+        reject(e);
+      }
+    });
+
+    video.addEventListener("error", () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Kunne ikke læse videoen."));
+    });
   });
 }
 
-imageInput.addEventListener("change", async () => {
-  const file = imageInput.files[0];
-  if(!file) return;
-
-  selectedImageData = await imageFileToDataURL(file);
-});
-
-videoInput.addEventListener("change", () => {
+videoInput.addEventListener("change", async () => {
   selectedVideoFile = videoInput.files[0] || null;
+  selectedThumbnail = null;
+
+  if(selectedVideoFile){
+    try{
+      selectedThumbnail = await createThumbnailFromVideo(selectedVideoFile);
+    }catch(e){
+      alert("Kunne ikke lave thumbnail fra videoen. Prøv en anden video.");
+    }
+  }
 });
+
+function sortedPeople(){
+  return [...people].sort((a,b) => {
+    if(Boolean(a.favorite) !== Boolean(b.favorite)){
+      return a.favorite ? -1 : 1;
+    }
+    return (a.order || 0) - (b.order || 0);
+  });
+}
 
 function renderPeople(){
   familyGrid.innerHTML = "";
 
-  if(people.length === 0){
+  const shown = sortedPeople();
+
+  if(shown.length === 0){
     familyGrid.innerHTML = `
       <div class="empty">
         <h2>Ingen personer endnu</h2>
@@ -503,19 +628,20 @@ function renderPeople(){
     return;
   }
 
-  people.forEach(person => {
+  shown.forEach(person => {
     const card = document.createElement("div");
     card.className = "card";
 
-    const avatar = person.image
-      ? `<div class="avatar"><img src="${person.image}" alt="${escapeHtml(person.name)}"></div>`
+    const avatar = person.thumbnail
+      ? `<div class="avatar"><img src="${person.thumbnail}" alt="${escapeHtml(person.name)}"></div>`
       : `<div class="avatar">${escapeHtml(person.name.charAt(0).toUpperCase())}</div>`;
 
     card.innerHTML = `
+      ${person.favorite ? `<div class="favoriteBadge">⭐</div>` : ""}
       ${avatar}
       <div>
         <p class="name">${escapeHtml(person.name)}</p>
-        <p class="title">${escapeHtml(person.title)}</p>
+        <p class="relation">${escapeHtml(person.relation)}</p>
         <div class="tag">▶ AFSPIL VIDEO</div>
       </div>
     `;
@@ -529,7 +655,9 @@ function renderPeople(){
 function renderAdminList(){
   adminList.innerHTML = "";
 
-  if(people.length === 0){
+  const shown = sortedPeople();
+
+  if(shown.length === 0){
     adminList.innerHTML = `
       <p style="text-align:center;color:rgba(255,255,255,.72);">
         Ingen personer oprettet endnu.
@@ -538,29 +666,60 @@ function renderAdminList(){
     return;
   }
 
-  people.forEach(person => {
+  shown.forEach(person => {
     const item = document.createElement("div");
     item.className = "listItem";
+    item.draggable = true;
+    item.dataset.id = person.id;
 
     item.innerHTML = `
+      <div class="dragHandle">☰</div>
       <div>
-        <strong>${escapeHtml(person.name)}</strong><br>
+        <strong>${person.favorite ? "⭐ " : ""}${escapeHtml(person.name)}</strong><br>
         <span style="color:rgba(255,255,255,.7);font-size:14px;">
-          ${escapeHtml(person.title)}
+          ${escapeHtml(person.relation)}
         </span>
       </div>
       <div class="smallActions">
-        <button class="lightBtn">Ret</button>
-        <button class="dangerBtn">Slet</button>
+        <button class="lightBtn favBtn">${person.favorite ? "Fjern ⭐" : "⭐"}</button>
+        <button class="lightBtn editBtn">Ret</button>
+        <button class="dangerBtn deleteBtn">Slet</button>
       </div>
     `;
 
-    item.querySelector(".lightBtn").addEventListener("click", () => {
+    item.addEventListener("dragstart", () => {
+      dragId = person.id;
+      item.classList.add("dragging");
+    });
+
+    item.addEventListener("dragend", () => {
+      dragId = null;
+      item.classList.remove("dragging");
+    });
+
+    item.addEventListener("dragover", e => {
+      e.preventDefault();
+    });
+
+    item.addEventListener("drop", e => {
+      e.preventDefault();
+      const targetId = item.dataset.id;
+      reorderPeople(dragId, targetId);
+    });
+
+    item.querySelector(".favBtn").addEventListener("click", () => {
+      person.favorite = !person.favorite;
+      savePeople();
+      renderPeople();
+      renderAdminList();
+    });
+
+    item.querySelector(".editBtn").addEventListener("click", () => {
       adminModal.classList.remove("show");
       openEditForm(person.id);
     });
 
-    item.querySelector(".dangerBtn").addEventListener("click", async () => {
+    item.querySelector(".deleteBtn").addEventListener("click", async () => {
       if(confirm("Vil du slette " + person.name + "?")){
         people = people.filter(p => p.id !== person.id);
         savePeople();
@@ -574,6 +733,27 @@ function renderAdminList(){
   });
 }
 
+function reorderPeople(fromId, toId){
+  if(!fromId || !toId || fromId === toId) return;
+
+  const list = sortedPeople();
+  const fromIndex = list.findIndex(p => p.id === fromId);
+  const toIndex = list.findIndex(p => p.id === toId);
+  if(fromIndex < 0 || toIndex < 0) return;
+
+  const [moved] = list.splice(fromIndex, 1);
+  list.splice(toIndex, 0, moved);
+
+  list.forEach((p, index) => {
+    const original = people.find(x => x.id === p.id);
+    if(original) original.order = index;
+  });
+
+  savePeople();
+  renderPeople();
+  renderAdminList();
+}
+
 function openAdmin(){
   renderAdminList();
   adminModal.classList.add("show");
@@ -583,11 +763,11 @@ function openNewForm(){
   formTitle.textContent = "Opret familiemedlem";
   editId.value = "";
   nameInput.value = "";
-  titleInput.value = "";
-  imageInput.value = "";
+  relationInput.value = "";
+  favoriteInput.checked = false;
   videoInput.value = "";
-  selectedImageData = null;
   selectedVideoFile = null;
+  selectedThumbnail = null;
   formModal.classList.add("show");
 }
 
@@ -598,17 +778,17 @@ function openEditForm(id){
   formTitle.textContent = "Rediger familiemedlem";
   editId.value = person.id;
   nameInput.value = person.name;
-  titleInput.value = person.title;
-  imageInput.value = "";
+  relationInput.value = person.relation;
+  favoriteInput.checked = !!person.favorite;
   videoInput.value = "";
-  selectedImageData = null;
   selectedVideoFile = null;
+  selectedThumbnail = null;
   formModal.classList.add("show");
 }
 
 async function saveForm(){
   const name = nameInput.value.trim();
-  const title = titleInput.value.trim();
+  const relation = relationInput.value.trim();
   const id = editId.value;
 
   if(!name){
@@ -616,7 +796,7 @@ async function saveForm(){
     return;
   }
 
-  if(!title){
+  if(!relation){
     alert("Skriv en titel/relation.");
     return;
   }
@@ -626,32 +806,37 @@ async function saveForm(){
     if(!person) return;
 
     person.name = name;
-    person.title = title;
-
-    if(selectedImageData){
-      person.image = selectedImageData;
-    }
+    person.relation = relation;
+    person.favorite = favoriteInput.checked;
 
     if(selectedVideoFile){
       await saveVideo(id, selectedVideoFile);
       person.hasVideo = true;
+
+      if(selectedThumbnail){
+        person.thumbnail = selectedThumbnail;
+      }
     }
   }else{
+    if(!selectedVideoFile){
+      alert("Vælg en video.");
+      return;
+    }
+
     const newId = makeId();
 
     const person = {
       id: newId,
       name,
-      title,
-      image: selectedImageData,
-      hasVideo: !!selectedVideoFile
+      relation,
+      favorite: favoriteInput.checked,
+      thumbnail: selectedThumbnail,
+      hasVideo: true,
+      order: people.length
     };
 
     people.push(person);
-
-    if(selectedVideoFile){
-      await saveVideo(newId, selectedVideoFile);
-    }
+    await saveVideo(newId, selectedVideoFile);
   }
 
   savePeople();
@@ -675,9 +860,8 @@ async function openPersonVideo(id){
     URL.revokeObjectURL(personVideo.src);
   }
 
-  videoTitle.textContent = person.name + " - " + person.title;
   personVideo.src = URL.createObjectURL(file);
-  videoModal.classList.add("show");
+  videoFullscreen.classList.add("show");
 
   try{
     personVideo.currentTime = 0;
@@ -701,7 +885,7 @@ function closeVideo(){
     personVideo.load();
   }
 
-  videoModal.classList.remove("show");
+  videoFullscreen.classList.remove("show");
 }
 
 hiddenAdminLogo.addEventListener("click", () => {
@@ -715,7 +899,7 @@ hiddenAdminLogo.addEventListener("click", () => {
     tapCount = 0;
   }, 1200);
 
-  if(tapCount >= 3){
+  if(tapCount >= 5){
     tapCount = 0;
     clearTimeout(tapTimer);
     openAdmin();
@@ -740,6 +924,18 @@ cancelFormBtn.addEventListener("click", () => {
 closeVideoBtn.addEventListener("click", closeVideo);
 
 personVideo.addEventListener("ended", closeVideo);
+
+videoFullscreen.addEventListener("click", e => {
+  if(e.target === videoFullscreen){
+    closeVideo();
+  }
+});
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
 
 renderPeople();
 </script>
